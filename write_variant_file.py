@@ -5,6 +5,13 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 import matplotlib.pyplot as plt
+import itertools
+
+## merges the two dictionaries x and y. if there are duplicate keys, the value from dictionary y is kept
+def merge_two_dicts(x, y):
+    z = x.copy()   # start with x's keys and values
+    z.update(y)    # modifies z with y's keys and values & returns None
+    return z
 
 
 ## filters out cells with a low UMI count.
@@ -132,16 +139,17 @@ with_ref_and_alt = with_ref_and_alt[with_ref_and_alt['cell_barcode'].isin(barcod
 
 ## create variant data frame (with important information from the original vcf file) so we can merge it with the other data frame (that has bam file info)  
 pileup_recs = [
-    ("%s:%d" % (rec.chrom, rec.pos), 
+    itertools.chain(("%s:%d" % (rec.chrom, rec.pos), 
      rec.id,
      rec.ref,
      rec.alts[0],
      rec.qual
-    ) 
+    ),(rec.info[key][0] if type(rec.info[key]) == tuple else rec.info[key] for key in rec.info))
 
-    for rec in filtered_variants
+    for rec in variants
 ];
-variants_df = pd.DataFrame.from_records(pileup_recs, columns=["region", "id", "ref_base", "alt_base", "quality"]);
+variants_df = pd.DataFrame.from_records(pileup_recs, columns=["region", "id", "ref_base", "alt_base", "quality"] +
+ [key for key in variants[0].info]);
 
 ## merge variants_df and the dataframe we got from the bam file
 variants_info = variants_df.merge(with_ref_and_alt, on='region', how='outer', sort=False)
@@ -178,23 +186,32 @@ for key in groups:
             samples_me[position]['DP'] = int(vcf_info.loc[index]['depth'])
             if(vcf_info.loc[index]['var_stat'] == True):
                 samples_me[position]['AO'] = int(vcf_info.loc[index]['count'])
-                samples_me[position]['GT'] = vcf_info.loc[index]['ref_base']
+                samples_me[position]['GT'] = vcf_info.loc[index]['alt_base']
             else:
                 samples_me[position]['RO'] = int(vcf_info.loc[index]['count'])
                 if(samples_me[position]['GT'] == None):
-                    samples_me[position]['GT'] = vcf_info.loc[index]['alt_base']
+                    samples_me[position]['GT'] = vcf_info.loc[index]['ref_base']
     row = vcf_info.loc[groups[key][0]]
+
+    ## add in the old info keys and their values
+    info_old = {}
+    for key in filtered_variants[0].info:
+        try: # it doesn't like string values for some reason so we just... ignore those ones
+            info_old[key] = int(row[key])
+        except ValueError:
+            continue
+    # need to merge in this order so we change the values of DP, AO, and RO to reflect what we want
+    info_all = merge_two_dicts(info_old, {'DP':int(row['total_depth']),
+                                   'AO':int(row['alternate_depth']),
+                                   'RO':int(row['reference_depth'])})
     entry = vcf_out.header.new_record(contig = row['region'].split(':')[0],
                             start = int(row['region'].split(':')[1])-1, 
                             stop = int(row['region'].split(':')[1]),
                             alleles = [row['ref_base'], row['alt_base']],
                             qual = row['quality'],
-                            info = {'DP':int(row['total_depth']),
-                                   'AO':int(row['alternate_depth']),
-                                   'RO':int(row['reference_depth'])},
+                            info = info_all,
                             samples=samples_me)
     vcf_out.write(entry)
     
 vcf_out.close()
-
 
