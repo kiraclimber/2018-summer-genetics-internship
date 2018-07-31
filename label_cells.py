@@ -1,3 +1,13 @@
+### kira parker
+### summer internship 2018
+### command line script that takes as input a vcf file (which can be produced with write_variant_file.py)
+### and outputs two files:
+###     normal_cells.csv contains a list of each cell barcode corresponding to a normal cell
+###     tumor_cells.csv contains a list of each cell barcode corresponding to a tumor cell
+### cells are identified by using a cutoff value for positive somatic ratio (the number of somatic variant sites where 
+###  the cell has a read and the alternate allele is present divided by the number of somatic variant sites where the 
+###  cell has a read at all). the current cutoff value is .1.
+
 import pysam
 import pandas as pd
 import sys
@@ -15,7 +25,8 @@ else:
 with pysam.VariantFile(vcf_file) as variant_file:
     variants = [v for v in variant_file.fetch()]
 
-## put the pertinent information from the vcf file into a dataframe
+## put the pertinent information (location, cell barcode, alternate allele count, reference allele count, and depth) 
+## from the vcf file into a dataframe
 variants_arr = [
     ("%s:%d" % (rec.chrom, rec.pos),
      rec.samples[i].name,
@@ -36,6 +47,7 @@ alt_sum = variants_df.groupby('cell_barcode')['alt_count'].agg('sum')
 depth_sum = variants_df.groupby('cell_barcode')['depth'].agg('sum')
 positive_ratio = alt_sum/depth_sum
 
+## use a cutoff value of .1
 info_ret_tumor = positive_ratio[positive_ratio >= .1]
 info_ret_normal = positive_ratio[positive_ratio <= .1]
 tumor_barcodes_pred = info_ret_tumor.index    
