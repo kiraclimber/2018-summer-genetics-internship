@@ -1,3 +1,16 @@
+### kira parker
+### summer internship 2018
+### command line script that takes as input a vcf file (from bulk DNA sequencing), a bam file (from single cell RNA sequencing)
+###  and a name for the output vcf file (file_name).
+### the script outputs another vcf file:
+###     [file_name].vcf.gz has information required to classify cells using label_cells.py
+### cells are filtered using a UMI cutoff value (15,000 is the current cutoff value) and then the alternate allele count,
+###  reference allele count, and depth at each somatic variant site is recorded, along with the previous info fields.
+###  each sample in the vcf file corresponds to one of the cell barcodes, and the genotype (1 means alternate allele is present, 0 otherwise),
+###  alternate allele count, reference allele count, and depth for each cell at each site are recorded there.
+###
+### sample usage: python write_variant_file.py "/uufs/chpc.utah.edu/common/home/ucgdlustre/work/u0991678/bowtell-singlecell/analysis/1.ascites-marth/somatic-wgs.vcf.gz" "/uufs/chpc.utah.edu/common/home/ucgdlustre/work/u0991678/bowtell-singlecell/cellranger/14629X4/outs/possorted_genome_bam.bam" "test_filtered.vcf.gz"
+
 ## import necessary libraries
 import pysam
 import sys
@@ -6,6 +19,8 @@ import pandas as pd
 from collections import Counter
 import matplotlib.pyplot as plt
 import itertools
+
+####---------------------------------- methods -----------------------------####
 
 ## merges the two dictionaries x and y. if there are duplicate keys, the value from dictionary y is kept
 def merge_two_dicts(x, y):
@@ -132,7 +147,6 @@ with_ref_and_alt = with_alternate.merge(reference_depth_d, on='region', how='out
 
 ## filter out cells with low UMI count
 barcodes, umi_counts = filter_by_umi("/uufs/chpc.utah.edu/common/home/ucgdlustre/work/u0991678/bowtell-singlecell/cellranger/14629X4/outs/possorted_genome_bam.bam", 15000, 0)
-#barcodes.append(0)  ## append 0 to the list of possible barcodes because we fill in NA barcode values with 0
 with_ref_and_alt = with_ref_and_alt.fillna(0)
 with_ref_and_alt = with_ref_and_alt[with_ref_and_alt['cell_barcode'].isin(barcodes)]
 
