@@ -7,6 +7,8 @@
 ### cells are identified by using a cutoff value for positive somatic ratio (the number of somatic variant sites where 
 ###  the cell has a read and the alternate allele is present divided by the number of somatic variant sites where the 
 ###  cell has a read at all). the current cutoff value is .1.
+###
+### sample usage: python label_cells.py test_filtered_all_info.vcf.gz
 
 import pysam
 import pandas as pd
